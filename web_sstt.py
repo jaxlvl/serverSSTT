@@ -87,12 +87,11 @@ def subprocess_web_request(recv_msg):
     for cabecera in lineas[1:body_index]: 
         cadena = cabecera.split(sep = ':')
         if cadena[0] in Cabeceras:
-            print(cadena[0])
             D[cadena[0]] = cadena[1]
     
     #procesamos el cuerpo
     body = ""
-    if body_index + 1 < lineas.length():
+    if body_index + 1 < len(lineas):
         for linea in lineas[body_index + 1:]:
             body = body + linea
             
