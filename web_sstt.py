@@ -21,6 +21,14 @@ TIMEOUT_CONNECTION = 3 # Timout para la conexión persistentePARA BORRAR
 MAX_ACCESOS = 10
 Cabeceras = ["Host", "User-Agent", "Accept", "Keep-Alive", "Connection"]
 D = {} #Diccionario vacío
+codigos = {
+    200: "OK",
+    301: "Moved Permanently",
+    400: "Bad Request",
+    404: "Not Found",
+    405: "Method Not Allowed",
+    505: "HTTP Version Not Supported"
+}
 
 
 XX = "19"
@@ -75,13 +83,53 @@ def process_cookies(headers,  cs):
         line.strip(" ")
     pass
 
-def subprocess_web_request(recv_msg):
+#método para construir mensajes conocidos de error
+def construir_msg_error(x):
+    respuesta = "HTTP/1.1 " + str(x) + " " + codigos[x]+ "\r\n" + \
+        "Content-Type: text/plain\r\n" + \
+        "Content-Length: " + str(len(codigos[x]) + len(str(x)) + 1) + "\r\n" + \
+        "\r\n" + \
+        str(x) + " " + codigos[x]
+        
+    return respuesta
+
+
+def subprocess_web_request(recv_msg, webroot):
+    respuesta = "HTTP/1.1 200 OK\r\n" + "Content-Type: text/plain\r\n" + "Content-Length: 11\r\n\r\n" + "Hola mundo"
+    
     lineas = recv_msg.splitlines()
     solicitud = lineas[0].split()
     body_index = lineas.index("")
     
     #procesamos la petición:
-    comand, path, http_version = solicitud[0], solicitud[1], solicitud[2]
+    if len(solicitud)==3:
+        comand, URL, http_version = solicitud[0], solicitud[1], solicitud[2]
+    else:
+        print("codificar error cabecera o valores por defecto", file=sys.stderr)
+    
+    if http_version != "HTTP/1.1":
+        print("Versión de HTTP distinta de 1.1")
+        #posiblemente construir mensaje con código 505.
+    if comand != "GET" and comand != "POST":
+            respuesta = construir_msg_error(405)
+            return respuesta
+    #* Leer URL y eliminar parámetros si los hubiera
+    URL_seg = URL.split("?")
+    path = URL_seg[0]
+    parametros = ""
+    if(len(URL_seg)>1):
+        parametros = URL_seg[1:] #ALMACENO LOS PARÁMETROS POR SI UN CASO SI NO, BORRAR
+        
+    #* Comprobar si el recurso solicitado es /, En ese caso el recurso es index.html
+    if(path=="/"):
+        path = "/index.html"
+    # Construir la ruta absoluta del recurso (webroot + recurso solicitado)
+    ruta = webroot + path
+    
+    ##ME HE QUEDADO POR AQUÍ
+
+        
+    
     
     #procesamos las cabeceras
     for cabecera in lineas[1:body_index]: 
@@ -95,8 +143,8 @@ def subprocess_web_request(recv_msg):
         for linea in lineas[body_index + 1:]:
             body = body + linea
             
-    
-    respuesta = "HTTP/1.1 200 OK\r\n" + "Content-Type: text/plain\r\n" + "Content-Length: 11\r\n\r\n" + "Hola mundo"
+    respuesta = construir_msg_error(404)
+    print("\nVeamos la respuesta enviada:\n" + respuesta)
     return respuesta
 
 def process_web_request(cs, webroot):
@@ -149,7 +197,7 @@ def process_web_request(cs, webroot):
             recv_msg = recibir_mensaje(cs)
             if recv_msg != "":
                 print(recv_msg)
-                snd_msg = subprocess_web_request(recv_msg)
+                snd_msg = subprocess_web_request(recv_msg, webroot)
                 enviar_mensaje(cs, snd_msg)
             else:
                 salir = True
