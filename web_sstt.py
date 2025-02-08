@@ -20,7 +20,7 @@ TIMEOUT_CONNECTION = 1 + 9 + 4 + 4 + 10 # Timout para la conexión persistente
 TIMEOUT_CONNECTION = 3 # Timout para la conexión persistentePARA BORRAR
 MAX_ACCESOS = 10
 Cabeceras = ["Host", "User-Agent", "Accept", "Keep-Alive", "Connection"]
-
+D = {} #Diccionario vacío
 
 
 XX = "19"
@@ -76,10 +76,30 @@ def process_cookies(headers,  cs):
     pass
 
 def subprocess_web_request(recv_msg):
-    respuesta = ""
-
+    lineas = recv_msg.splitlines()
+    solicitud = lineas[0].split()
+    body_index = lineas.index("")
+    
+    #procesamos la petición:
+    comand, path, http_version = solicitud[0], solicitud[1], solicitud[2]
+    
+    #procesamos las cabeceras
+    for cabecera in lineas[1:body_index]: 
+        cadena = cabecera.split(sep = ':')
+        if cadena[0] in Cabeceras:
+            print(cadena[0])
+            D[cadena[0]] = cadena[1]
+    
+    #procesamos el cuerpo
+    body = ""
+    if body_index + 1 < lineas.length():
+        for linea in lineas[body_index + 1:]:
+            body = body + linea
+            
+    
     respuesta = "HTTP/1.1 200 OK\r\n" + "Content-Type: text/plain\r\n" + "Content-Length: 11\r\n\r\n" + "Hola mundo"
     return respuesta
+
 def process_web_request(cs, webroot):
     """ Procesamiento principal de los mensajes recibidos.
         Típicamente se seguirá un procedimiento similar al siguiente (aunque el alumno puede modificarlo si lo desea)
@@ -205,3 +225,4 @@ def main():
 
 if __name__== "__main__":
     main()
+    
