@@ -25,6 +25,7 @@ codigos = {
     200: "OK",
     301: "Moved Permanently",
     400: "Bad Request",
+    403: "Forbidden",
     404: "Not Found",
     405: "Method Not Allowed",
     505: "HTTP Version Not Supported"
@@ -70,7 +71,7 @@ def cerrar_conexion(cs):
     pass
 
 
-def process_cookies(headers,  cs):
+def process_cookies(cookie_header):
     """ Esta función procesa la cookie cookie_counter
         1. Se analizan las cabeceras en headers para buscar la cabecera Cookie
         2. Una vez encontrada una cabecera Cookie se comprueba si el valor es cookie_counter
@@ -78,10 +79,16 @@ def process_cookies(headers,  cs):
         4. Si se encuentra y tiene el valor MAX_ACCESSOS se devuelve MAX_ACCESOS
         5. Si se encuentra y tiene un valor 1 <= x < MAX_ACCESOS se incrementa en 1 y se devuelve el valor
     """
-    for line in headers:
-        line = str(line)
-        line.strip(" ")
-    pass
+    if cookie_header != "":
+        cookie = cookie_header.split(":")
+        if cookie[0] == COOKIE_COUNTER:
+            accesos = cookie[1]
+            if accesos == MAX_ACCESOS:
+                return MAX_ACCESOS
+            elif 1 <= accesos < MAX_ACCESOS: 
+                return accesos + 1       
+    else:
+        return 1
 
 #método para construir mensajes conocidos de error
 def construir_msg_error(x):
@@ -126,16 +133,29 @@ def subprocess_web_request(recv_msg, webroot):
     # Construir la ruta absoluta del recurso (webroot + recurso solicitado)
     ruta = webroot + path
     
-    ##ME HE QUEDADO POR AQUÍ
-
+    #Comprobar que el recurso (fichero) existe, si no devolver Error 404 "Not found"
+    if not os.path.isfile(ruta):
+        respuesta = construir_msg_error(404)
+        return respuesta
         
-    
+    #Analizar las cabeceras. Imprimir cada cabecera y su valor. Si la cabecera es Cookie comprobar
+    #el valor de cookie_counter para ver si ha llegado a MAX_ACCESOS.
+    #Si se ha llegado a MAX_ACCESOS devolver un Error "403 Forbidden"
     
     #procesamos las cabeceras
     for cabecera in lineas[1:body_index]: 
         cadena = cabecera.split(sep = ':')
-        if cadena[0] in Cabeceras:
-            D[cadena[0]] = cadena[1]
+        print("He encontrado la siguiente cabecera:", cadena[0])
+        print(" Con el siguiente valor:", cadena[1])
+        if cadena[0] == "Cookie":
+            set_cookie_count = process_cookies(cadena[1])
+            if set_cookie_count == MAX_ACCESOS:
+                respuesta = construir_msg_error(403)
+        else:
+            set_cookie_count = 1
+        
+        
+        
     
     #procesamos el cuerpo
     body = ""
@@ -187,7 +207,7 @@ def process_web_request(cs, webroot):
     rlist = [cs]
     wlist = []
     xlist = []
-    #HAy que controlar el número de accesos
+    #Hay que controlar el número de accesos
     accesos = 0
     recv_msg = "a"
     salir = False
