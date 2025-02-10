@@ -20,7 +20,6 @@ TIMEOUT_CONNECTION = 1 + 9 + 4 + 4 + 10 # Timout para la conexión persistente
 TIMEOUT_CONNECTION = 3 # Timout para la conexión persistentePARA BORRAR
 MAX_ACCESOS = 10
 Cabeceras = ["Host", "User-Agent", "Accept", "Keep-Alive", "Connection"]
-D = {} #Diccionario vacío
 codigos = {
     200: "OK",
     301: "Moved Permanently",
@@ -110,7 +109,7 @@ def subprocess_web_request(recv_msg, webroot):
     
     #procesamos la petición:
     if len(solicitud)==3:
-        comand, URL, http_version = solicitud[0], solicitud[1], solicitud[2]
+        comand, URL_req, http_version = solicitud[0], solicitud[1], solicitud[2]
     else:
         print("codificar error cabecera o valores por defecto", file=sys.stderr)
     
@@ -121,7 +120,7 @@ def subprocess_web_request(recv_msg, webroot):
             respuesta = construir_msg_error(405)
             return respuesta
     #* Leer URL y eliminar parámetros si los hubiera
-    URL_seg = URL.split("?")
+    URL_seg = URL_req.split("?")
     path = URL_seg[0]
     parametros = ""
     if(len(URL_seg)>1):
@@ -141,7 +140,7 @@ def subprocess_web_request(recv_msg, webroot):
     #Analizar las cabeceras. Imprimir cada cabecera y su valor. Si la cabecera es Cookie comprobar
     #el valor de cookie_counter para ver si ha llegado a MAX_ACCESOS.
     #Si se ha llegado a MAX_ACCESOS devolver un Error "403 Forbidden"
-    
+    flag_cookie = False
     #procesamos las cabeceras
     for cabecera in lineas[1:body_index]: 
         cadena = cabecera.split(sep = ':')
@@ -149,11 +148,34 @@ def subprocess_web_request(recv_msg, webroot):
         print(" Con el siguiente valor:", cadena[1])
         if cadena[0] == "Cookie":
             set_cookie_count = process_cookies(cadena[1])
+            flag_cookie = True
             if set_cookie_count == MAX_ACCESOS:
                 respuesta = construir_msg_error(403)
-        else:
-            set_cookie_count = 1
+                return respuesta
         
+    if(not flag_cookie):
+        set_cookie_count=1
+    # Obtener el tamaño del recurso en bytes.
+    
+    size_bytes = os.stat(ruta).st_size
+    
+    #Extraer extensión para obtener el tipo de archivo. Necesario para la cabecera Content-Type
+
+    ext = path.split(".")[-1]
+
+    #Preparar respuesta con código 200. Construir una respuesta que incluya: la línea de respuesta y
+    #las cabeceras Date, Server, Connection, Set-Cookie (para la cookie cookie_counter),
+    #Content-Length y Content-Type.
+    
+    respuesta = "HTTP/1.1 200 OK\r\n" + \
+        "Date: " + datetime.utcnow().strftime('%a, %d %b %Y %H:%M:%S GMT') + "\r\n" + \
+        "Server: " + URL + "\r\n" + \
+        "Content-Type: " + filetypes[ext] + "\r\n" \
+        "Content-Length: " + str(size_bytes) + "\r\n" \
+        "Connection: Keep-Alive" + "\r\n" + \
+        "Keep-Alive: timeout=" + str(TIMEOUT_CONNECTION) + " max=" + str(MAX_ACCESOS) + "\r\n" + \
+        "Set-Cookie: " + COOKIE_COUNTER + ":" + str(set_cookie_count) + "\r\n" + \
+        "\r\n"
         
         
     
@@ -163,7 +185,6 @@ def subprocess_web_request(recv_msg, webroot):
         for linea in lineas[body_index + 1:]:
             body = body + linea
             
-    respuesta = construir_msg_error(404)
     print("\nVeamos la respuesta enviada:\n" + respuesta)
     return respuesta
 
@@ -224,7 +245,7 @@ def process_web_request(cs, webroot):
         else:
             salir = True
         accesos+=1
-    #print("salgo del while de procesar")
+    
 def main():
     """ Función principal del servidor
     """
