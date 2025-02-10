@@ -100,16 +100,17 @@ def process_cookies(cookie_header):
 #método para construir mensajes conocidos de error
 def construir_msg_error(x):
     gif_url = "./error_gif.gif"
-    html_content = f"""
+    html_content = """
     <html>
-    <head><title>Error {x}</title></head>
+    <head><title>Error {}</title></head>
     <body>
-        <h1>{x} {codigos[x]}</h1>
+        <h1>{} {}</h1>
         <p>Lo sentimos, ocurrió un error.</p>
-        <img src="{gif_url}" alt="Error GIF">
+        <img src="{}" alt="Error GIF">
     </body>
     </html>
-    """
+    """.format(x, x, codigos[x], gif_url)
+
     snd_msg = "HTTP/1.1 " + str(x) + " " + codigos[x]+ "\r\n" + \
         "Date: " + datetime.utcnow().strftime('%a, %d %b %Y %H:%M:%S GMT') + "\r\n" + \
         "Server: " + URL + "\r\n" + \
@@ -268,7 +269,7 @@ def process_web_request(cs, webroot):
                             body = body + linea
                     """        
                     
-                    print("\nVeamos la snd_msg enviada:\n", snd_msg_bin.decode())
+                    #print("\nVeamos la snd_msg enviada:\n", snd_msg_bin.decode())
                                 
                     enviar_mensaje(cs, snd_msg_bin)
                 f.close()
