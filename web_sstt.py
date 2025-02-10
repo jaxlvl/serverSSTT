@@ -52,7 +52,7 @@ def enviar_mensaje(cs, data):
     """ Esta función envía datos (data) a través del socket cs
         Devuelve el número de bytes enviados.
     """
-    cs.send(data.encode())
+    cs.send(data)
     pass
 
 
@@ -81,93 +81,14 @@ def process_cookies(cookie_header):
     if cookie_header != "":
         cookie = cookie_header.split(":")
         if cookie[0] == COOKIE_COUNTER:
-            accesos = cookie[1]
+            accesos = int(cookie[1])
             if accesos == MAX_ACCESOS:
                 return MAX_ACCESOS
-            elif 1 <= accesos < MAX_ACCESOS: 
+            elif 1 <= accesos and accesos < MAX_ACCESOS: 
                 return accesos + 1       
     else:
         return 1
-
-#método para construir mensajes conocidos de error
-def construir_msg_error(x):
-    respuesta = "HTTP/1.1 " + str(x) + " " + codigos[x]+ "\r\n" + \
-        "Content-Type: text/plain\r\n" + \
-        "Content-Length: " + str(len(codigos[x]) + len(str(x)) + 1) + "\r\n" + \
-        "\r\n" + \
-        str(x) + " " + codigos[x]
-        
-    return respuesta
-
-
-def subprocess_web_request(recv_msg, webroot):
-    respuesta = "HTTP/1.1 200 OK\r\n" + "Content-Type: text/plain\r\n" + "Content-Length: 11\r\n\r\n" + "Hola mundo"
-    
-    lineas = recv_msg.splitlines()
-    solicitud = lineas[0].split()
-    body_index = lineas.index("")
-    
-    #procesamos la petición:
-    if len(solicitud)==3:
-        comand, URL_req, http_version = solicitud[0], solicitud[1], solicitud[2]
-    else:
-        print("codificar error cabecera o valores por defecto", file=sys.stderr)
-    
-    if http_version != "HTTP/1.1":
-        print("Versión de HTTP distinta de 1.1")
-        #posiblemente construir mensaje con código 505.
-    if comand != "GET" and comand != "POST":
-            respuesta = construir_msg_error(405)
-            return respuesta
-    #* Leer URL y eliminar parámetros si los hubiera
-    URL_seg = URL_req.split("?")
-    path = URL_seg[0]
-    parametros = ""
-    if(len(URL_seg)>1):
-        parametros = URL_seg[1:] #ALMACENO LOS PARÁMETROS POR SI UN CASO SI NO, BORRAR
-        
-    #* Comprobar si el recurso solicitado es /, En ese caso el recurso es index.html
-    if(path=="/"):
-        path = "/index.html"
-    # Construir la ruta absoluta del recurso (webroot + recurso solicitado)
-    ruta = webroot + path
-    
-    #Comprobar que el recurso (fichero) existe, si no devolver Error 404 "Not found"
-    if not os.path.isfile(ruta):
-        respuesta = construir_msg_error(404)
-        return respuesta
-        
-    #Analizar las cabeceras. Imprimir cada cabecera y su valor. Si la cabecera es Cookie comprobar
-    #el valor de cookie_counter para ver si ha llegado a MAX_ACCESOS.
-    #Si se ha llegado a MAX_ACCESOS devolver un Error "403 Forbidden"
-    flag_cookie = False
-    #procesamos las cabeceras
-    for cabecera in lineas[1:body_index]: 
-        cadena = cabecera.split(sep = ':')
-        print("He encontrado la siguiente cabecera:", cadena[0])
-        print(" Con el siguiente valor:", cadena[1])
-        if cadena[0] == "Cookie":
-            set_cookie_count = process_cookies(cadena[1])
-            flag_cookie = True
-            if set_cookie_count == MAX_ACCESOS:
-                respuesta = construir_msg_error(403)
-                return respuesta
-        
-    if(not flag_cookie):
-        set_cookie_count=1
-    # Obtener el tamaño del recurso en bytes.
-    
-    size_bytes = os.stat(ruta).st_size
-    
-    #Extraer extensión para obtener el tipo de archivo. Necesario para la cabecera Content-Type
-
-    ext = path.split(".")[-1]
-
-    #Preparar respuesta con código 200. Construir una respuesta que incluya: la línea de respuesta y
-    #las cabeceras Date, Server, Connection, Set-Cookie (para la cookie cookie_counter),
-    #Content-Length y Content-Type.
-    
-    respuesta = "HTTP/1.1 200 OK\r\n" + \
+"""snd_msg = "HTTP/1.1 200 OK\r\n" + \
         "Date: " + datetime.utcnow().strftime('%a, %d %b %Y %H:%M:%S GMT') + "\r\n" + \
         "Server: " + URL + "\r\n" + \
         "Content-Type: " + filetypes[ext] + "\r\n" \
@@ -175,18 +96,30 @@ def subprocess_web_request(recv_msg, webroot):
         "Connection: Keep-Alive" + "\r\n" + \
         "Keep-Alive: timeout=" + str(TIMEOUT_CONNECTION) + " max=" + str(MAX_ACCESOS) + "\r\n" + \
         "Set-Cookie: " + COOKIE_COUNTER + ":" + str(set_cookie_count) + "\r\n" + \
-        "\r\n"
+        "\r\n"""
+#método para construir mensajes conocidos de error
+def construir_msg_error(x):
+    gif_url = "./error_gif.gif"
+    html_content = f"""
+    <html>
+    <head><title>Error {x}</title></head>
+    <body>
+        <h1>{x} {codigos[x]}</h1>
+        <p>Lo sentimos, ocurrió un error.</p>
+        <img src="{gif_url}" alt="Error GIF">
+    </body>
+    </html>
+    """
+    snd_msg = "HTTP/1.1 " + str(x) + " " + codigos[x]+ "\r\n" + \
+        "Date: " + datetime.utcnow().strftime('%a, %d %b %Y %H:%M:%S GMT') + "\r\n" + \
+        "Server: " + URL + "\r\n" + \
+        "Content-Type: " + filetypes["html"] + "\r\n" + \
+        "Content-Length: " + str(len(html_content)) + "\r\n" + \
+        "\r\n" + \
+        html_content
         
-        
-    
-    #procesamos el cuerpo
-    body = ""
-    if body_index + 1 < len(lineas):
-        for linea in lineas[body_index + 1:]:
-            body = body + linea
-            
-    print("\nVeamos la respuesta enviada:\n" + respuesta)
-    return respuesta
+    return snd_msg
+
 
 def process_web_request(cs, webroot):
     """ Procesamiento principal de los mensajes recibidos.
@@ -212,7 +145,7 @@ def process_web_request(cs, webroot):
                       Si se ha llegado a MAX_ACCESOS devolver un Error "403 Forbidden"
                     * Obtener el tamaño del recurso en bytes.
                     * Extraer extensión para obtener el tipo de archivo. Necesario para la cabecera Content-Type
-                    * Preparar respuesta con código 200. Construir una respuesta que incluya: la línea de respuesta y
+                    * Preparar con código 200. Construir una respuesta que incluya: la línea de respuesta y
                       las cabeceras Date, Server, Connection, Set-Cookie (para la cookie cookie_counter),
                       Content-Length y Content-Type.
                     * Leer y enviar el contenido del fichero a retornar en el cuerpo de la respuesta.
@@ -238,8 +171,107 @@ def process_web_request(cs, webroot):
             recv_msg = recibir_mensaje(cs)
             if recv_msg != "":
                 print(recv_msg)
-                snd_msg = subprocess_web_request(recv_msg, webroot)
-                enviar_mensaje(cs, snd_msg)
+                
+                lineas = recv_msg.splitlines()
+                solicitud = lineas[0].split()
+                body_index = lineas.index("")
+                
+                #procesamos la petición:
+                if len(solicitud)==3:
+                    comand, URL_req, http_version = solicitud[0], solicitud[1], solicitud[2]
+                else:
+                    print("codificar error cabecera o valores por defecto", file=sys.stderr)
+                
+                if http_version != "HTTP/1.1":
+                    print("Versión de HTTP distinta de 1.1")
+                    #posiblemente construir mensaje con código 505.
+                if comand != "GET" and comand != "POST":
+                        snd_msg = construir_msg_error(405)
+                        return snd_msg
+                #* Leer URL y eliminar parámetros si los hubiera
+                URL_seg = URL_req.split("?")
+                path = URL_seg[0]
+                parametros = ""
+                if(len(URL_seg)>1):
+                    parametros = URL_seg[1:] #ALMACENO LOS PARÁMETROS POR SI UN CASO SI NO, BORRAR
+                    
+                #* Comprobar si el recurso solicitado es /, En ese caso el recurso es index.html
+                if(path=="/"):
+                    path = "/index.html"
+                # Construir la ruta absoluta del recurso (webroot + recurso solicitado)
+                ruta = webroot + path
+                
+                #Comprobar que el recurso (fichero) existe, si no devolver Error 404 "Not found"
+                if not os.path.isfile(ruta):
+                    snd_msg = construir_msg_error(404)
+                    return snd_msg
+                    
+                #Analizar las cabeceras. Imprimir cada cabecera y su valor. Si la cabecera es Cookie comprobar
+                #el valor de cookie_counter para ver si ha llegado a MAX_ACCESOS.
+                #Si se ha llegado a MAX_ACCESOS devolver un Error "403 Forbidden"
+                flag_cookie = False
+                #procesamos las cabeceras
+                for cabecera in lineas[1:body_index]: 
+                    cadena = cabecera.split(sep = ':', maxsplit=1)
+                    print("He encontrado la siguiente cabecera:", cadena[0])
+                    
+                    cadena[1] = cadena[1][1:]
+                    
+                    print(" Con el siguiente valor: ", cadena[1])
+                    if cadena[0] == "Cookie":
+                        set_cookie_count = process_cookies(cadena[1])
+                        flag_cookie = True
+                        if set_cookie_count == MAX_ACCESOS:
+                            snd_msg = construir_msg_error(403)
+                            return snd_msg
+                    
+                if(not flag_cookie):
+                    set_cookie_count=1
+                # Obtener el tamaño del recurso en bytes.
+                
+                size_bytes = os.stat(ruta).st_size
+                
+                #Extraer extensión para obtener el tipo de archivo. Necesario para la cabecera Content-Type
+
+                ext = path.split(".")[-1]
+
+                #Preparar respuesta con código 200. Construir una respuesta que incluya: la línea de respuesta y
+                #las cabeceras Date, Server, Connection, Set-Cookie (para la cookie cookie_counter),
+                #Content-Length y Content-Type.
+                
+                """Leer y enviar el contenido del fichero a retornar en el cuerpo de la respuesta.
+                Se abre el fichero en modo lectura y modo binario
+                Se lee el fichero en bloques de BUFSIZE bytes (8KB)
+                Cuando ya no hay más información para leer, se corta el bucle"""
+                bytes_read = 0
+                f = open(ruta, "rb")
+                while bytes_read < size_bytes:
+                    bytes_read = min(size_bytes, BUFSIZE)
+                    size_bytes -= bytes_read
+                    snd_msg = "HTTP/1.1 200 OK\r\n" + \
+                        "Date: " + datetime.utcnow().strftime('%a, %d %b %Y %H:%M:%S GMT') + "\r\n" + \
+                        "Server: " + URL + "\r\n" + \
+                        "Content-Type: " + filetypes[ext] + "\r\n" + \
+                        "Content-Length: " + str(bytes_read) + "\r\n" + \
+                        "Connection: Keep-Alive" + "\r\n" + \
+                        "Keep-Alive: timeout=" + str(TIMEOUT_CONNECTION) + " max=" + str(MAX_ACCESOS) + "\r\n" + \
+                        "Set-Cookie: " + COOKIE_COUNTER + ":" + str(set_cookie_count) + "\r\n" + \
+                        "\r\n"
+                    snd_msg_bin = snd_msg.encode()
+                    cont_f = f.read(bytes_read)
+                    snd_msg_bin = snd_msg_bin + cont_f 
+                    """
+                    #procesamos el cuerpo HAY QUE VER SI PUEDE SER NECESARIO O NO
+                    body = ""
+                    if body_index + 1 < len(lineas):
+                        for linea in lineas[body_index + 1:]:
+                            body = body + linea
+                    """        
+                    
+                    print("\nVeamos la snd_msg enviada:\n", snd_msg_bin.decode())
+                                
+                    enviar_mensaje(cs, snd_msg_bin)
+                f.close()
             else:
                 salir = True
         else:
