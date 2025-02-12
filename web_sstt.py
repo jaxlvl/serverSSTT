@@ -17,7 +17,7 @@ import logging      # Para imprimir logs
 
 BUFSIZE = 8192 # Tamaño máximo del buffer que se puede utilizar
 TIMEOUT_CONNECTION = 1 + 9 + 4 + 4 + 10 # Timout para la conexión persistente
-TIMEOUT_CONNECTION = 3 # Timout para la conexión persistentePARA BORRAR
+#TIMEOUT_CONNECTION = 3 # Timout para la conexión persistentePARA BORRAR
 MAX_ACCESOS = 10
 Cabeceras = ["Host", "User-Agent", "Accept", "Keep-Alive", "Connection"]
 codigos = {
@@ -226,6 +226,7 @@ def process_web_request(cs, webroot):
                             snd_msg = construir_msg_error(403)
                             return snd_msg
                     
+                print("\n")
                 if(not flag_cookie):
                     set_cookie_count=1
                 # Obtener el tamaño del recurso en bytes.
@@ -244,23 +245,26 @@ def process_web_request(cs, webroot):
                 Se abre el fichero en modo lectura y modo binario
                 Se lee el fichero en bloques de BUFSIZE bytes (8KB)
                 Cuando ya no hay más información para leer, se corta el bucle"""
-                bytes_read = 0
-                f = open(ruta, "rb")
-                while bytes_read < size_bytes:
-                    bytes_read = min(size_bytes, BUFSIZE)
-                    size_bytes -= bytes_read
-                    snd_msg = "HTTP/1.1 200 OK\r\n" + \
+                snd_msg = "HTTP/1.1 200 OK\r\n" + \
                         "Date: " + datetime.utcnow().strftime('%a, %d %b %Y %H:%M:%S GMT') + "\r\n" + \
                         "Server: " + URL + "\r\n" + \
                         "Content-Type: " + filetypes[ext] + "\r\n" + \
-                        "Content-Length: " + str(bytes_read) + "\r\n" + \
+                        "Content-Length: " + str(size_bytes) + "\r\n" + \
                         "Connection: Keep-Alive" + "\r\n" + \
                         "Keep-Alive: timeout=" + str(TIMEOUT_CONNECTION) + " max=" + str(MAX_ACCESOS) + "\r\n" + \
                         "Set-Cookie: " + COOKIE_COUNTER + ":" + str(set_cookie_count) + "\r\n" + \
                         "\r\n"
-                    snd_msg_bin = snd_msg.encode()
-                    cont_f = f.read(bytes_read)
-                    snd_msg_bin = snd_msg_bin + cont_f 
+                snd_msg_bin = snd_msg.encode()
+                enviar_mensaje(cs, snd_msg_bin)
+                
+                bytes_read = 0
+                f = open(ruta, "rb")
+                while bytes_read < size_bytes:
+                    bytes_to_read = min(size_bytes-bytes_read, BUFSIZE)
+                    bytes_read += bytes_to_read
+                    
+                    cont_f = f.read(bytes_to_read)
+                    snd_msg_bin =cont_f 
                     """
                     #procesamos el cuerpo HAY QUE VER SI PUEDE SER NECESARIO O NO
                     body = ""
@@ -270,7 +274,7 @@ def process_web_request(cs, webroot):
                     """        
                     
                     #print("\nVeamos la snd_msg enviada:\n", snd_msg_bin.decode())
-                                
+                    print("Enviando ", bytes_to_read, " bytes")      
                     enviar_mensaje(cs, snd_msg_bin)
                 f.close()
             else:
