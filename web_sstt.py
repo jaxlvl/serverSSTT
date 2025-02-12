@@ -17,7 +17,6 @@ import logging      # Para imprimir logs
 
 BUFSIZE = 8192 # Tamaño máximo del buffer que se puede utilizar
 TIMEOUT_CONNECTION = 1 + 9 + 4 + 4 + 10 # Timout para la conexión persistente
-#TIMEOUT_CONNECTION = 3 # Timout para la conexión persistentePARA BORRAR
 MAX_ACCESOS = 10
 Cabeceras = ["Host", "User-Agent", "Accept", "Keep-Alive", "Connection"]
 codigos = {
@@ -52,7 +51,9 @@ def enviar_mensaje(cs, data):
     """ Esta función envía datos (data) a través del socket cs
         Devuelve el número de bytes enviados.
     """
-    cs.send(data)
+    if isinstance(data, (bytes, bytearray)):
+        cs.send(data)
+    else: cs.send(data.encode())
     pass
 
 
@@ -88,15 +89,8 @@ def process_cookies(cookie_header):
                 return accesos + 1       
     else:
         return 1
-"""snd_msg = "HTTP/1.1 200 OK\r\n" + \
-        "Date: " + datetime.utcnow().strftime('%a, %d %b %Y %H:%M:%S GMT') + "\r\n" + \
-        "Server: " + URL + "\r\n" + \
-        "Content-Type: " + filetypes[ext] + "\r\n" \
-        "Content-Length: " + str(size_bytes) + "\r\n" \
-        "Connection: Keep-Alive" + "\r\n" + \
-        "Keep-Alive: timeout=" + str(TIMEOUT_CONNECTION) + " max=" + str(MAX_ACCESOS) + "\r\n" + \
-        "Set-Cookie: " + COOKIE_COUNTER + ":" + str(set_cookie_count) + "\r\n" + \
-        "\r\n"""
+
+
 #método para construir mensajes conocidos de error
 def construir_msg_error(x):
     gif_url = "./error_gif.gif"
@@ -171,7 +165,7 @@ def process_web_request(cs, webroot):
         if rsublist == rlist:
             recv_msg = recibir_mensaje(cs)
             if recv_msg != "":
-                print(recv_msg)
+                print(recv_msg) #HAY QUE IMPRIMIR EL MENSAJE QUE LLEGA????
                 
                 lineas = recv_msg.splitlines()
                 solicitud = lineas[0].split()
@@ -189,7 +183,8 @@ def process_web_request(cs, webroot):
                     #posiblemente construir mensaje con código 505.
                 if comand != "GET" and comand != "POST":
                         snd_msg = construir_msg_error(405)
-                        return snd_msg
+                        enviar_mensaje(cs, snd_msg)
+                        return 
                 #* Leer URL y eliminar parámetros si los hubiera
                 URL_seg = URL_req.split("?")
                 path = URL_seg[0]
@@ -206,7 +201,8 @@ def process_web_request(cs, webroot):
                 #Comprobar que el recurso (fichero) existe, si no devolver Error 404 "Not found"
                 if not os.path.isfile(ruta):
                     snd_msg = construir_msg_error(404)
-                    return snd_msg
+                    enviar_mensaje(cs, snd_msg)
+                    return 
                     
                 #Analizar las cabeceras. Imprimir cada cabecera y su valor. Si la cabecera es Cookie comprobar
                 #el valor de cookie_counter para ver si ha llegado a MAX_ACCESOS.
@@ -225,9 +221,10 @@ def process_web_request(cs, webroot):
                         flag_cookie = True
                         if set_cookie_count == MAX_ACCESOS:
                             snd_msg = construir_msg_error(403)
-                            return snd_msg
+                            enviar_mensaje(cs, snd_msg)
+                            return 
                     
-                print("\n")
+                print()
                 if(not flag_cookie):
                     set_cookie_count=1
                 # Obtener el tamaño del recurso en bytes.
@@ -244,7 +241,8 @@ def process_web_request(cs, webroot):
                     match = re.search(r'email=([^&\s]+)', body)  # Buscar email en el cuerpo
                     if not match:
                         snd_msg = construir_msg_error(403)  # Error si no hay email
-                        enviar_mensaje(cs, snd_msg.encode())
+                        #enviar_mensaje(cs, snd_msg.encode())
+                        enviar_mensaje(cs, snd_msg)
                         return
                     
                     email = match.group(1)  # Extraer email
@@ -252,7 +250,8 @@ def process_web_request(cs, webroot):
                     #Validar email: un solo @ y termina en @um.es
                     if email.count("@") != 1 or not email.endswith("@um.es"):
                         snd_msg = construir_msg_error(403)  # Error 403 si email no es válido
-                        enviar_mensaje(cs, snd_msg.encode())
+                        #enviar_mensaje(cs, snd_msg.encode())
+                        enviar_mensaje(cs, snd_msg)
                         return
                     post_snd_body = "email: " + email + " correcto"  # Cuerpo de la respuesta POST
 
@@ -277,8 +276,7 @@ def process_web_request(cs, webroot):
                 if post_snd_body != "":
                     snd_msg = snd_msg + post_snd_body
 
-                snd_msg_bin = snd_msg.encode()
-                enviar_mensaje(cs, snd_msg_bin)
+                enviar_mensaje(cs, snd_msg)
                 
                 bytes_read = 0
                 f = open(ruta, "rb")
@@ -288,15 +286,7 @@ def process_web_request(cs, webroot):
                     
                     cont_f = f.read(bytes_to_read)
                     snd_msg_bin =cont_f 
-                    """
-                    #procesamos el cuerpo HAY QUE VER SI PUEDE SER NECESARIO O NO
-                    body = ""
-                    if body_index + 1 < len(lineas):
-                        for linea in lineas[body_index + 1:]:
-                            body = body + linea
-                    """        
-                    
-                    #print("\nVeamos la snd_msg enviada:\n", snd_msg_bin.decode())
+
                     print("Enviando ", bytes_to_read, " bytes")      
                     enviar_mensaje(cs, snd_msg_bin)
                 f.close()
