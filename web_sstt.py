@@ -199,7 +199,7 @@ def process_web_request(cs, webroot):
                 ruta = webroot + path
                 
                 #Comprobar que el recurso (fichero) existe, si no devolver Error 404 "Not found"
-                if not os.path.isfile(ruta):
+                if not os.path.isfile(ruta) and comand!="POST": #IMPORTANTE VER SI TIENE QUE EXISTIR EL FICHERO CUANDO SE HACE POST, PORQUE ERROR
                     snd_msg = construir_msg_error(404)
                     enviar_mensaje(cs, snd_msg)
                     return 
@@ -228,12 +228,11 @@ def process_web_request(cs, webroot):
                 if(not flag_cookie):
                     set_cookie_count=1
                 # Obtener el tamaño del recurso en bytes.
-                
-                size_bytes = os.stat(ruta).st_size
-                
-                #Extraer extensión para obtener el tipo de archivo. Necesario para la cabecera Content-Type
-
-                ext = path.split(".")[-1]
+                #IMPORTANTE MIRAR SI ESTO ES ÚNICAMENTE NECESARIO CUANDO ES UN GET, PORQUE ERROR CON EL POST
+                if comand!="POST":
+                    size_bytes = os.stat(ruta).st_size
+                    #Extraer extensión para obtener el tipo de archivo. Necesario para la cabecera Content-Type
+                    ext = path.split(".")[-1]
 
                 #Procesamiento de POST
                 post_snd_body = ""
@@ -248,13 +247,14 @@ def process_web_request(cs, webroot):
                     email = match.group(1)  # Extraer email
                     
                     #Validar email: un solo @ y termina en @um.es
-                    if email.count("@") != 1 or not email.endswith("@um.es"):
+                    if email.count("%40") != 1 or not email.endswith("%40"+"um.es"):
                         snd_msg = construir_msg_error(403)  # Error 403 si email no es válido
-                        #enviar_mensaje(cs, snd_msg.encode())
                         enviar_mensaje(cs, snd_msg)
                         return
                     post_snd_body = "email: " + email + " correcto"  # Cuerpo de la respuesta POST
-
+                    snd_msg = construir_msg_error(200)
+                    enviar_mensaje(cs, snd_msg)
+                    return
                 #Preparar respuesta con código 200. Construir una respuesta que incluya: la línea de respuesta y
                 #las cabeceras Date, Server, Connection, Set-Cookie (para la cookie cookie_counter),
                 #Content-Length y Content-Type.
@@ -286,9 +286,9 @@ def process_web_request(cs, webroot):
                     
                     cont_f = f.read(bytes_to_read)
                     snd_msg_bin =cont_f 
-
-                    print("Enviando ", bytes_to_read, " bytes")      
+    
                     enviar_mensaje(cs, snd_msg_bin)
+                print("Enviados ", bytes_read, " bytes\n")  
                 f.close()
             else:
                 salir = True
