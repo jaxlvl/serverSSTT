@@ -99,7 +99,7 @@ def construir_msg_error(x):
     <head><title>Error {}</title></head>
     <body>
         <h1>{} {}</h1>
-        <p>Lo sentimos, ocurrió un error.</p>
+        <p>Lo sentimos, ocurrio un error.</p>
         <img src="{}" alt="Error GIF">
     </body>
     </html>
