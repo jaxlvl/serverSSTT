@@ -79,7 +79,7 @@ def process_cookies(cookie_header):
         5. Si se encuentra y tiene un valor 1 <= x < MAX_ACCESOS se incrementa en 1 y se devuelve el valor
     """
     if cookie_header != "":
-        cookie = cookie_header.split(":")
+        cookie = cookie_header.split("=")
         if cookie[0] == COOKIE_COUNTER:
             accesos = int(cookie[1])
             if accesos == MAX_ACCESOS:
@@ -176,6 +176,7 @@ def process_web_request(cs, webroot):
                 lineas = recv_msg.splitlines()
                 solicitud = lineas[0].split()
                 body_index = lineas.index("")
+                body = "\n".join(lineas[body_index + 1:])  # Unir las líneas del cuerpo
                 
                 #procesamos la petición:
                 if len(solicitud)==3:
@@ -237,6 +238,24 @@ def process_web_request(cs, webroot):
 
                 ext = path.split(".")[-1]
 
+                #Procesamiento de POST
+                post_snd_body = ""
+                if comand == "POST":
+                    match = re.search(r'email=([^&\s]+)', body)  # Buscar email en el cuerpo
+                    if not match:
+                        snd_msg = construir_msg_error(403)  # Error si no hay email
+                        enviar_mensaje(cs, snd_msg.encode())
+                        return
+                    
+                    email = match.group(1)  # Extraer email
+                    
+                    #Validar email: un solo @ y termina en @um.es
+                    if email.count("@") != 1 or not email.endswith("@um.es"):
+                        snd_msg = construir_msg_error(403)  # Error 403 si email no es válido
+                        enviar_mensaje(cs, snd_msg.encode())
+                        return
+                    post_snd_body = "email: " + email + " correcto"  # Cuerpo de la respuesta POST
+
                 #Preparar respuesta con código 200. Construir una respuesta que incluya: la línea de respuesta y
                 #las cabeceras Date, Server, Connection, Set-Cookie (para la cookie cookie_counter),
                 #Content-Length y Content-Type.
@@ -252,8 +271,12 @@ def process_web_request(cs, webroot):
                         "Content-Length: " + str(size_bytes) + "\r\n" + \
                         "Connection: Keep-Alive" + "\r\n" + \
                         "Keep-Alive: timeout=" + str(TIMEOUT_CONNECTION) + " max=" + str(MAX_ACCESOS) + "\r\n" + \
-                        "Set-Cookie: " + COOKIE_COUNTER + ":" + str(set_cookie_count) + "\r\n" + \
+                        "Set-Cookie: " + COOKIE_COUNTER + "=" + str(set_cookie_count) + "\r\n" + \
                         "\r\n"
+                #Añadir cuerpo POST si existe
+                if post_snd_body != "":
+                    snd_msg = snd_msg + post_snd_body
+
                 snd_msg_bin = snd_msg.encode()
                 enviar_mensaje(cs, snd_msg_bin)
                 
