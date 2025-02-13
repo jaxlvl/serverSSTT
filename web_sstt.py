@@ -89,7 +89,29 @@ def process_cookies(cookie_header):
                 return accesos + 1       
     else:
         return 1
+    
+def construir_msg_email(email):
+    gif_url = "./email_gif.gif"
+    html_content = """
+    <html>
+    <head><title>Email</title></head>
+    <body>
+        <h1>Email correcto</h1>
+        <p>El email {} es correcto.</p>
+        <img src="{}" alt="Email GIF">
+    </body>
+    </html>
+    """.format(email, gif_url)
 
+    snd_msg = "HTTP/1.1 200 OK\r\n" + \
+        "Date: " + datetime.utcnow().strftime('%a, %d %b %Y %H:%M:%S GMT') + "\r\n" + \
+        "Server: " + URL + "\r\n" + \
+        "Content-Type: " + filetypes["html"] + "\r\n" + \
+        "Content-Length: " + str(len(html_content)) + "\r\n" + \
+        "\r\n" + \
+        html_content
+        
+    return snd_msg
 
 #método para construir mensajes conocidos de error
 def construir_msg_error(x):
@@ -182,7 +204,7 @@ def process_web_request(cs, webroot):
                     print("Versión de HTTP distinta de 1.1")
                     #posiblemente construir mensaje con código 505.
                 if comand != "GET" and comand != "POST":
-                        snd_msg = construir_msg_error(405)
+                        snd_msg = construir_msg_email(405)
                         enviar_mensaje(cs, snd_msg)
                         return 
                 #* Leer URL y eliminar parámetros si los hubiera
@@ -251,9 +273,9 @@ def process_web_request(cs, webroot):
                         snd_msg = construir_msg_error(403)  # Error 403 si email no es válido
                         enviar_mensaje(cs, snd_msg)
                         return
-                    post_snd_body = "email: " + email + " correcto"  # Cuerpo de la respuesta POST
-                    snd_msg = construir_msg_error(200)
-                    enviar_mensaje(cs, snd_msg)
+                    post_snd_msg = construir_msg_email(email)
+                    print ("\n\n\n " + post_snd_msg + "\n\n\n")
+                    enviar_mensaje(cs, post_snd_msg)
                     return
                 #Preparar respuesta con código 200. Construir una respuesta que incluya: la línea de respuesta y
                 #las cabeceras Date, Server, Connection, Set-Cookie (para la cookie cookie_counter),
@@ -272,9 +294,12 @@ def process_web_request(cs, webroot):
                         "Keep-Alive: timeout=" + str(TIMEOUT_CONNECTION) + " max=" + str(MAX_ACCESOS) + "\r\n" + \
                         "Set-Cookie: " + COOKIE_COUNTER + "=" + str(set_cookie_count) + "\r\n" + \
                         "\r\n"
+                
+                """
                 #Añadir cuerpo POST si existe
                 if post_snd_body != "":
                     snd_msg = snd_msg + post_snd_body
+                """
 
                 enviar_mensaje(cs, snd_msg)
                 
