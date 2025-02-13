@@ -13,6 +13,9 @@ import sys          # sys.exit
 import re           # Analizador sintáctico
 import logging      # Para imprimir logs
 
+from urllib.parse import unquote
+
+
 
 
 BUFSIZE = 8192 # Tamaño máximo del buffer que se puede utilizar
@@ -20,7 +23,6 @@ TIMEOUT_CONNECTION = 1 + 9 + 4 + 4 + 10 # Timout para la conexión persistente
 MAX_ACCESOS = 10
 Cabeceras = ["Host", "User-Agent", "Accept", "Keep-Alive", "Connection"]
 codigos = {
-    200: "OK",
     301: "Moved Permanently",
     400: "Bad Request",
     403: "Forbidden",
@@ -104,6 +106,29 @@ def construir_msg_email(email):
     """.format(email, gif_url)
 
     snd_msg = "HTTP/1.1 200 OK\r\n" + \
+        "Date: " + datetime.utcnow().strftime('%a, %d %b %Y %H:%M:%S GMT') + "\r\n" + \
+        "Server: " + URL + "\r\n" + \
+        "Content-Type: " + filetypes["html"] + "\r\n" + \
+        "Content-Length: " + str(len(html_content)) + "\r\n" + \
+        "\r\n" + \
+        html_content
+        
+    return snd_msg
+
+def construir_msg_email_incorrecto(email):
+    gif_url = "./denegado_gif.gif"
+    html_content = """
+    <html>
+    <head><title>Email</title></head>
+    <body>
+        <h1>403 Forbiden</h1>
+        <p>El email {} no es correcto.</p>
+        <img src="{}" alt="Email GIF">
+    </body>
+    </html>
+    """.format(email, gif_url)
+
+    snd_msg = "HTTP/1.1 403 "+ codigos[403]+"\r\n" + \
         "Date: " + datetime.utcnow().strftime('%a, %d %b %Y %H:%M:%S GMT') + "\r\n" + \
         "Server: " + URL + "\r\n" + \
         "Content-Type: " + filetypes["html"] + "\r\n" + \
@@ -267,10 +292,10 @@ def process_web_request(cs, webroot):
                         return
                     
                     email = match.group(1)  # Extraer email
-                    
+                    email = unquote(email)
                     #Validar email: un solo @ y termina en @um.es
-                    if email.count("%40") != 1 or not email.endswith("%40"+"um.es"):
-                        snd_msg = construir_msg_error(403)  # Error 403 si email no es válido
+                    if email.count("@") != 1 or not email.endswith("@um.es"):
+                        snd_msg = construir_msg_email_incorrecto(email)  # Error 403 si email no es válido
                         enviar_mensaje(cs, snd_msg)
                         return
                     post_snd_msg = construir_msg_email(email)
