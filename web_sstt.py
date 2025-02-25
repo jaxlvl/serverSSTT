@@ -216,22 +216,31 @@ def process_web_request(cs, webroot):
                 
                 lineas = recv_msg.splitlines()
                 solicitud = lineas[0].split()
-                body_index = lineas.index("")
-                body = "\n".join(lineas[body_index + 1:])  # Unir las líneas del cuerpo
+                if "" in lineas:
+                    body_index = lineas.index("")
+                    body = "\n".join(lineas[body_index + 1:])  # Unir las líneas del cuerpo
+                else:
+                    body_index = len(lineas)  # Si no hay línea vacía, considera que no hay cuerpo
+                    body = ""
+
                 
                 #procesamos la petición:
                 if len(solicitud)==3:
                     comand, URL_req, http_version = solicitud[0], solicitud[1], solicitud[2]
                 else:
-                    print("codificar error cabecera o valores por defecto", file=sys.stderr)
+                    snd_msg = construir_msg_error(400)
+                    enviar_mensaje(cs, snd_msg)
+                    return
+                    #print("codificar error cabecera o valores por defecto", file=sys.stderr)
                 
                 if http_version != "HTTP/1.1":
                     print("Versión de HTTP distinta de 1.1")
                     #posiblemente construir mensaje con código 505.
                 if comand != "GET" and comand != "POST":
-                        snd_msg = construir_msg_email(405)
-                        enviar_mensaje(cs, snd_msg)
-                        return 
+                    print("Comando no reconocido")
+                    snd_msg = construir_msg_error(400)
+                    enviar_mensaje(cs, snd_msg)
+                    return 
                 #* Leer URL y eliminar parámetros si los hubiera
                 URL_seg = URL_req.split("?")
                 path = URL_seg[0]
@@ -244,7 +253,6 @@ def process_web_request(cs, webroot):
                     path = "/index.html"
                 # Construir la ruta absoluta del recurso (webroot + recurso solicitado)
                 ruta = webroot + path
-                
                 #Comprobar que el recurso (fichero) existe, si no devolver Error 404 "Not found"
                 if not os.path.isfile(ruta) and comand!="POST": #IMPORTANTE VER SI TIENE QUE EXISTIR EL FICHERO CUANDO SE HACE POST, PORQUE ERROR
                     snd_msg = construir_msg_error(404)
