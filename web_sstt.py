@@ -21,6 +21,7 @@ from urllib.parse import unquote
 BUFSIZE = 8192 # Tamaño máximo del buffer que se puede utilizar
 TIMEOUT_CONNECTION = 1 + 9 + 4 + 4 + 10 # Timout para la conexión persistente
 MAX_ACCESOS = 10
+MAX_AGE = 120
 Cabeceras = ["Host", "User-Agent", "Accept", "Keep-Alive", "Connection"]
 codigos = {
     301: "Moved Permanently",
@@ -110,6 +111,8 @@ def construir_msg_email(email):
         "Server: " + URL + "\r\n" + \
         "Content-Type: " + filetypes["html"] + "\r\n" + \
         "Content-Length: " + str(len(html_content)) + "\r\n" + \
+        "Connection: Keep-Alive" + "\r\n" + \
+        "Keep-Alive: timeout=" + str(TIMEOUT_CONNECTION) + " max=" + str(MAX_ACCESOS) + "\r\n" + \
         "\r\n" + \
         html_content
         
@@ -306,6 +309,7 @@ def process_web_request(cs, webroot):
                         snd_msg = construir_msg_email_incorrecto(email)  # Error 403 si email no es válido
                         enviar_mensaje(cs, snd_msg)
                         return
+                    
                     post_snd_msg = construir_msg_email(email)
                     print ("\n\n\n " + post_snd_msg + "\n\n\n")
                     enviar_mensaje(cs, post_snd_msg)
@@ -325,7 +329,7 @@ def process_web_request(cs, webroot):
                         "Content-Length: " + str(size_bytes) + "\r\n" + \
                         "Connection: Keep-Alive" + "\r\n" + \
                         "Keep-Alive: timeout=" + str(TIMEOUT_CONNECTION) + " max=" + str(MAX_ACCESOS) + "\r\n" + \
-                        "Set-Cookie: " + COOKIE_COUNTER + "=" + str(set_cookie_count) + "\r\n" + \
+                        "Set-Cookie: " + COOKIE_COUNTER + "=" + str(set_cookie_count) + "; Max-Age=" + str(MAX_AGE) + "\r\n" + \
                         "\r\n"
                 
                 """
